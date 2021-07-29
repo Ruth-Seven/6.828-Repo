@@ -162,19 +162,20 @@ cga_init(void)
 static void
 cga_putc(int c)
 {
-	// if no attribute given, then use black on white
+	// if no attributffe given, then use black on white
 	if (!(c & ~0xFF))
 		c |= 0x0700;
 
 	switch (c & 0xff) {
-	case '\b':
+	case '\b': // backspace
 		if (crt_pos > 0) {
 			crt_pos--;
 			crt_buf[crt_pos] = (c & ~0xff) | ' ';
 		}
 		break;
-	case '\n':
+	case '\n': // 
 		crt_pos += CRT_COLS;
+		// break; // ?
 		/* fallthru */
 	case '\r':
 		crt_pos -= (crt_pos % CRT_COLS);
@@ -384,6 +385,8 @@ kbd_init(void)
 
 #define CONSBUFSIZE 512
 
+
+// JJ: why use a shared buf for different input?
 static struct {
 	uint8_t buf[CONSBUFSIZE];
 	uint32_t rpos;
@@ -415,6 +418,7 @@ cons_getc(void)
 	// poll for any pending input characters,
 	// so that this function works even when interrupts are disabled
 	// (e.g., when called from the kernel monitor).
+	// 
 	serial_intr();
 	kbd_intr();
 
