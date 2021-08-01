@@ -1,0 +1,400 @@
+
+## Ex1 ~ Ex3
+对照着，C源码和对应的 disassembly 文件，一并跟踪 GDB 的行踪，这才入手这个 boot 的运行。不然真是一头雾水，官方给的 guild 也很清晰关键。
+
+
+
+
+questions:
+
+
+At what point does the processor start executing 32-bit code? What exactly causes the switch from 16- to 32-bit mode?
+> A: 
+>  orl     $CR0_PE_ON, %eax
+>     7c26:	66 83 c8 01          	or     $0x1,%ax
+>  movl    %eax, %cr0
+>         7c2a:	0f 22 c0             	mov    %eax,%cr0
+>      
+  
+ 
+
+
+
+What is the last instruction of the boot loader executed, and what is the first instruction of the kernel it just loaded?
+> the lastest instruction:
+>  	  	((void (*)(void)) (ELFHDR->e_entry))();
+>   7d81:	ff 15 18 00 01 00    	call   *0x10018
+> 
+> the first instruction:
+>  0x10000c:	movw   $0x1234,0x472
+
+
+
+Where is the first instruction of the kernel?
+How does the boot loader decide how many sectors it must read in order to fetch the entire kernel from disk? Where does it find this information?
+> 1. 0x10000c
+> 2. boot loader get the information from the first section in kernel, which is loaded firstly by boot.
+> 3. concretly, it read info from `	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);`
+
+
+
+
+
+
+
+
+
+## EX4-6
+4-5  easy
+ 
+6: boot loader把kernel的一部分 setion，载入到内存0x100000。接着就跳转到那个 kernel 指令上去！
+
+> 我怎么这么棒👍🏻
+> 进入kernel entry 打断点：
+>   b *0x7d81 // boot.asm 结束处
+>   b *0x0x10000c  // 加载的kernel入口 
+
+
+## Ex7
+进入kernel后，`movl %eax %cr0`开启了虚拟地址机制，原本都是线性地址，都隐形变成了虚拟地址。在此例中，`0x00100000`~ `0x00400000`内容是 booter 装载的，地址是线性的，物理的，开启虚拟映射后，`entrypgdir.c` hard-coded 的映射页被启用，高位的`0x0f010000`等地址都被映射到低位`0x00100000`。也就是说现在在虚拟地址上，有两块相同内容的空间。
+
+
+
+## Ex8
+
+C 变参函数参数涉及到GCC`__builtin_va_**`自建函数。也就是说，变参是可以用编译器实现的！
+
+**1**
+`kern/console.c`用`asm`编程和底层结构交互，并提供高级接口`cputchar()`、`getchar()`、`cputchar()` 。内部 `serail I/O`、`parallel port` 和 `cga/vga`、 `keyboard`通过`cons_intr`传递函数指针进行解耦，同时统一数据操作为 console进行数据输入和输出操作。
+>  // JJ: why use a shared buf for different input?
+>  怎么控制输出设备呢？貌似都输出
+
+`cprintf` ：有`putch`, 对应 `console`
+`snprintf`: 有 `sprintputch`, 对应`string buffer`
+
+看完最复杂、最关键的从程序把格式化 string 转化为 char 的`vprintfmt`，不得不惊叹下构造的巧妙：循环遍历，特判 escape char，通过标记字符获取各个 format 参数，等等。
+其中的`putch`形参的类型`void (*putch)(int, void*)`签名中参数分别代表输出 char 和记录输出信息的结构的指针。其实`putch`就像一层包装，隐藏掉底层不同形式的修改和变动，以及调用函数的不同。
+
+
+**2**
+当内容超过显示容量，刷新并上移一行 vga/cga(图形适配器）的内容。
+
+**3**
+
+`fmt` points "x %d, ...." string. `ap`自然就是 x,y,z。
+
+call sequence：
+   - cprintf
+   - vcprintf
+   - vprintfmt
+   - va_arg  + putch
+   - cputchar
+   - cons_putc
+
+the sequence of arguemnt of cons_putc is a char list of the formated string.
+va_arg 每次，调用，自然少了一个参数。
+vcprintf就更简单了一个 fmt，一个 va_list
+
+**4**
+假设存储方式为 little Endian
+output: `He110 World` (还有个\0没输出）
+
+如果是 big-endian， 得有i=0x726c6400， 57616 不需要动.
+
+**5**
+按理来说应该会报错，这得看 `va_arg(*ap, type)`对空值的反应。
+
+
+**6**
+他的意思是改成`cprintf(..., const char *fmt)`?
+
+
+**challenge** 有点难，先放一放
+
+## ex9
+ > 意义不太明确
+
+
+ebp设置在
+```assembly
+	# Clear the frame pointer register (EBP)
+	# so that once we get into debugging C code,
+	# stack backtraces will be terminated properly.
+	movl	$0x0,%ebp			# nuke frame pointer
+  f010002f:	bd 00 00 00 00       	mov    $0x0,%ebp
+
+    # Set the stack pointer
+	movl	$(bootstacktop),%esp
+f0100034:	bc 00 00 11 f0       	mov    $0xf0110000,%esp
+```
+
+内存从 0xf0110000 开始分配。
+(不过最开始 ebp 的值确实是 0x000
+保留的空间有 多少？？？
+
+一开始栈指针指向0xf0110000
+## Ex1 ~ Ex3
+对照着，C源码和对应的 disassembly 文件，一并跟踪 GDB 的行踪，这才入手这个 boot 的运行。不然真是一头雾水，官方给的 guild 也很清晰关键。
+
+
+
+
+questions:
+
+
+At what point does the processor start executing 32-bit code? What exactly causes the switch from 16- to 32-bit mode?
+> A: 
+>  orl     $CR0_PE_ON, %eax
+>     7c26:	66 83 c8 01          	or     $0x1,%ax
+>  movl    %eax, %cr0
+>         7c2a:	0f 22 c0             	mov    %eax,%cr0
+>      
+  
+ 
+
+
+
+What is the last instruction of the boot loader executed, and what is the first instruction of the kernel it just loaded?
+> the lastest instruction:
+>  	  	((void (*)(void)) (ELFHDR->e_entry))();
+>   7d81:	ff 15 18 00 01 00    	call   *0x10018
+> 
+> the first instruction:
+>  0x10000c:	movw   $0x1234,0x472
+
+
+
+Where is the first instruction of the kernel?
+How does the boot loader decide how many sectors it must read in order to fetch the entire kernel from disk? Where does it find this information?
+> 1. 0x10000c
+> 2. boot loader get the information from the first section in kernel, which is loaded firstly by boot.
+> 3. concretly, it read info from `	ph = (struct Proghdr *) ((uint8_t *) ELFHDR + ELFHDR->e_phoff);`
+
+
+
+
+
+
+
+
+
+## EX4-6
+4-5  easy
+ 
+6: boot loader把kernel的一部分 setion，载入到内存0x100000。接着就跳转到那个 kernel 指令上去！
+
+> 我怎么这么棒👍🏻
+> 进入kernel entry 打断点：
+>   b *0x7d81 // boot.asm 结束处
+>   b *0x0x10000c  // 加载的kernel入口 
+
+
+## Ex7
+进入kernel后，`movl %eax %cr0`开启了虚拟地址机制，原本都是线性地址，都隐形变成了虚拟地址。在此例中，`0x00100000`~ `0x00400000`内容是 booter 装载的，地址是线性的，物理的，开启虚拟映射后，`entrypgdir.c` hard-coded 的映射页被启用，高位的`0x0f010000`等地址都被映射到低位`0x00100000`。也就是说现在在虚拟地址上，有两块相同内容的空间。
+
+
+
+## Ex8
+
+C 变参函数参数涉及到GCC`__builtin_va_**`自建函数。也就是说，变参是可以用编译器实现的！
+
+**1**
+`kern/console.c`用`asm`编程和底层结构交互，并提供高级接口`cputchar()`、`getchar()`、`cputchar()` 。内部 `serail I/O`、`parallel port` 和 `cga/vga`、 `keyboard`通过`cons_intr`传递函数指针进行解耦，同时统一数据操作为 console进行数据输入和输出操作。
+>  // JJ: why use a shared buf for different input?
+>  怎么控制输出设备呢？貌似都输出
+
+`cprintf` ：有`putch`, 对应 `console`
+`snprintf`: 有 `sprintputch`, 对应`string buffer`
+
+看完最复杂、最关键的从程序把格式化 string 转化为 char 的`vprintfmt`，不得不惊叹下构造的巧妙：循环遍历，特判 escape char，通过标记字符获取各个 format 参数，等等。
+其中的`putch`形参的类型`void (*putch)(int, void*)`签名中参数分别代表输出 char 和记录输出信息的结构的指针。其实`putch`就像一层包装，隐藏掉底层不同形式的修改和变动，以及调用函数的不同。
+
+
+**2**
+当内容超过显示容量，刷新并上移一行 vga/cga(图形适配器）的内容。
+
+**3**
+
+`fmt` points "x %d, ...." string. `ap`自然就是 x,y,z。
+
+call sequence：
+   - cprintf
+   - vcprintf
+   - vprintfmt
+   - va_arg  + putch
+   - cputchar
+   - cons_putc
+
+the sequence of arguemnt of cons_putc is a char list of the formated string.
+va_arg 每次，调用，自然少了一个参数。
+vcprintf就更简单了一个 fmt，一个 va_list
+
+**4**
+假设存储方式为 little Endian
+output: `He110 World` (还有个\0没输出）
+
+如果是 big-endian， 得有i=0x726c6400， 57616 不需要动.
+
+**5**
+按理来说应该会报错，这得看 `va_arg(*ap, type)`对空值的反应。
+
+
+**6**
+他的意思是改成`cprintf(..., const char *fmt)`?
+
+
+**challenge** 有点难，先放一放
+
+## ex9
+ > 意义不太明确
+
+
+ebp设置在
+```assembly
+	# Clear the frame pointer register (EBP)
+	# so that once we get into debugging C code,
+	# stack backtraces will be terminated properly.
+	movl	$0x0,%ebp			# nuke frame pointer
+  f010002f:	bd 00 00 00 00       	mov    $0x0,%ebp
+
+    # Set the stack pointer
+	movl	$(bootstacktop),%esp
+f0100034:	bc 00 00 11 f0       	mov    $0xf0110000,%esp
+```
+
+内存从 0xf0110000 开始分配。
+(不过最开始 ebp 的值确实是 0x000
+保留的空间有 多少？？？
+
+一开始栈指针指向0xf0110000
+
+kernel 通过保存 ebp 保存一个函数的顶端，esp 保存栈栈帧的末端。
+
+
+>  (Why can't the backtrace code detect how many arguments there actually are? How could this limitation be fixed?)
+
+
+## ex10
+调试结果如下, 经过验证，没看出来和传统的 C calling 有啥差别
+
+```assembly 
+
+=> 0xf010006c <test_backtrace+44>:	jle    0xf0100097 <test_backtrace+87>
+
+Breakpoint 2, 0xf010006c in test_backtrace (x=4) at kern/init.c:15 /
+15		if (x > 0)
+(gdb) info reg
+eax            0x0                 0
+ecx            0x3d4               980
+edx            0x3d5               981
+ebx            0xf0111308          -267316472
+esp            0xf010ff90          0xf010ff90 
+ebp            0xf010ff98          0xf010ff98
+esi            0x3                 3
+edi            0x0                 0
+eip            0xf010006c          0xf010006c <test_backtrace+44>
+eflags         0x6                 [ PF ]
+cs             0x8                 8
+ss             0x10                16
+ds             0x10                16
+es             0x10                16
+fs             0x10                16
+gs             0x10                16
+(gdb) x/32w $esp
+0xf010ff90:	0xf0111308($esp)	0x00000004（local var）	0xf010ffb8($ebp)	0xf010007a（return addresss）
+0xf010ffa0:	0x00000003（parameters）	0x00000004	0x00000000	0xf010004e
+0xf010ffb0:	0xf0111308	0x00000005	0xf010ffd8	0xf010007a
+0xf010ffc0:	0x00000004	0x00000005	0x00000000	0xf010004e
+0xf010ffd0:	0xf0111308	0x00010094	0xf010fff8	0xf01000fc
+0xf010ffe0:	0x00000005	0x00001aac	0x00000640	0x00000000
+0xf010fff0:	0x00000000	0x00010094	0x00000000	0xf010003e
+0xf0110000 <entry_pgtable>:	0x00000003	0x00001003	0x00002003	0x00003003
+
+```
+上面代码所示，可以递归得获取一个栈帧的 ebp，同时打印相关信息，ex10就完成了
+
+
+
+## ex11
+
+
+
+这个实验做的是debug的原理，编译产生的stab，通过链接器设置链接地址和载入地址，同时代码设置了stab数据结构的上下界。stab指针自然指向了ｓｔａｂ的上界。
+
+> 发现很多错误来自于对 C 的不熟练，留下了痛苦的泪水~
+
+Stab具体内容可以用`objdump -G obj/kern/kernel`查看
+
+链接地址用 `objdupm -h obj/kern/kernel`查看
+
+链接过程在`kernel.ld`查看
+
+
+实验要求用搜索复制搜索具体代码，搜索过程不表，具体到获取`N_SLINE` stab 表的 value 即可
+
+
+
+kernel 通过保存 ebp 保存一个函数的顶端，esp 保存栈栈帧的末端。
+
+
+>  (Why can't the backtrace code detect how many arguments there actually are? How could this limitation be fixed?)
+
+
+## ex10
+调试结果如下, 经过验证，没看出来和传统的 C calling 有啥差别
+
+```assembly 
+
+=> 0xf010006c <test_backtrace+44>:	jle    0xf0100097 <test_backtrace+87>
+
+Breakpoint 2, 0xf010006c in test_backtrace (x=4) at kern/init.c:15 /
+15		if (x > 0)
+(gdb) info reg
+eax            0x0                 0
+ecx            0x3d4               980
+edx            0x3d5               981
+ebx            0xf0111308          -267316472
+esp            0xf010ff90          0xf010ff90 
+ebp            0xf010ff98          0xf010ff98
+esi            0x3                 3
+edi            0x0                 0
+eip            0xf010006c          0xf010006c <test_backtrace+44>
+eflags         0x6                 [ PF ]
+cs             0x8                 8
+ss             0x10                16
+ds             0x10                16
+es             0x10                16
+fs             0x10                16
+gs             0x10                16
+(gdb) x/32w $esp
+0xf010ff90:	0xf0111308($esp)	0x00000004（local var）	0xf010ffb8($ebp)	0xf010007a（return addresss）
+0xf010ffa0:	0x00000003（parameters）	0x00000004	0x00000000	0xf010004e
+0xf010ffb0:	0xf0111308	0x00000005	0xf010ffd8	0xf010007a
+0xf010ffc0:	0x00000004	0x00000005	0x00000000	0xf010004e
+0xf010ffd0:	0xf0111308	0x00010094	0xf010fff8	0xf01000fc
+0xf010ffe0:	0x00000005	0x00001aac	0x00000640	0x00000000
+0xf010fff0:	0x00000000	0x00010094	0x00000000	0xf010003e
+0xf0110000 <entry_pgtable>:	0x00000003	0x00001003	0x00002003	0x00003003
+
+```
+上面代码所示，可以递归得获取一个栈帧的 ebp，同时打印相关信息，ex10就完成了
+
+
+
+## ex11
+
+
+
+这个实验做的是debug的原理，编译产生的stab，通过链接器设置链接地址和载入地址，同时代码设置了stab数据结构的上下界。stab指针自然指向了ｓｔａｂ的上界。
+
+> 发现很多错误来自于对 C 的不熟练，留下了痛苦的泪水~
+
+Stab具体内容可以用`objdump -G obj/kern/kernel`查看
+
+链接地址用 `objdupm -h obj/kern/kernel`查看
+
+链接过程在`kernel.ld`查看
+
+
+实验要求用搜索复制搜索具体代码，搜索过程不表，具体到获取`N_SLINE` stab 表的 value 即可
+
