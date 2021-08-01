@@ -2,6 +2,7 @@
     "files.associations": {
         "stdarg.h": "c",
         "types.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "kdebug.h": "c"
     }
 }
