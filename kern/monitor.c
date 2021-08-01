@@ -25,9 +25,18 @@ static struct Command commands[] = {
 	{"help", "Display this list of commands", mon_help},
 	{"kerninfo", "Display information about the kernel", mon_kerninfo},
 	{"backtrace", "Display information about the stack trace", mon_backtrace},
+	{"quit", "Shut down the machine", mon_quit},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+
+int mon_quit(int argc, char **argv, struct Trapframe *tf)
+{
+	cprintf("bye~bye\n");
+	//exit(0);
+	return 0;
+}
+
 
 int mon_help(int argc, char **argv, struct Trapframe *tf)
 {
@@ -61,9 +70,9 @@ int mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	{
 		cprintf("ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
 				arg, *(arg+1), *(arg+2), *(arg+3), *(arg+4), *(arg+5), *(arg+6));
-		// cprintf("ebp %8x\n",
-		// 		arg);
-		
+		struct Eipdebuginfo info;
+		int err = debuginfo_eip((uintptr_t)(*(arg + 1)), &info);
+		cprintf("\t%s:%d: %.*s+%d\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, (*(arg + 1) - info.eip_fn_addr));
 		arg = (int*)(*arg);
 	}
 	return 0;
