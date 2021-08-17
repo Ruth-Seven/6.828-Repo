@@ -4,5 +4,6 @@
         "types.h": "c",
         "stdio.h": "c",
         "kdebug.h": "c"
-    }
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
 }
