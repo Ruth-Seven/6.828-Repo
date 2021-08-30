@@ -28,7 +28,7 @@ def test_backtrace_arguments():
                  "\n".join("%08x" % n for n in [0,0,1,2,3,4,5]))
 
 @test(5, parent=test_jos)
-def test_backtrace_symbols():
+def test_trace_symbols():
     matches = re.findall(r"kern/init.c:[0-9]+: +([^+]*)\+", r.qemu.output)
     assert_equal("\n".join(matches[:7]),
                  "\n".join(["test_backtrace"] * 6 + ["i386_init"]))

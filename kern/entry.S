@@ -55,15 +55,16 @@ entry:
 	# Load the physical address of entry_pgdir into cr3.  entry_pgdir
 	# is defined in entrypgdir.c.
 	movl	$(RELOC(entry_pgdir)), %eax
-	movl	%eax, %cr3
+	movl	%eax, %cr3 # set page dirctory address.
 	# Turn on paging.
 	movl	%cr0, %eax
-	orl	$(CR0_PE|CR0_PG|CR0_WP), %eax
+	orl	$(CR0_PE|CR0_PG|CR0_WP), %eax # keep original status and open some status
 	movl	%eax, %cr0
 
 	# Now paging is enabled, but we're still running at a low EIP
 	# (why is this okay?).  Jump up above KERNBASE before entering
 	# C code.
+	# Bacause we map [0, 4]MB va into physical address [0, 4]MB too.
 	mov	$relocated, %eax
 	jmp	*%eax
 relocated:
