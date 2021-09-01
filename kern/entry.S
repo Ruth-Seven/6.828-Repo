@@ -72,6 +72,8 @@ relocated:
 	# Clear the frame pointer register (EBP)
 	# so that once we get into debugging C code,
 	# stack backtraces will be terminated properly.
+	
+	# JJ: this why we can traceback into addredss 0.
 	movl	$0x0,%ebp			# nuke frame pointer
 
 	# Set the stack pointer
