@@ -1,0 +1,5 @@
++ cc kern/pmap.c
++ ld obj/kern/kernel
++ mk obj/kern/kernel.img
+qemu-system-i386 -drive file=obj/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::26000 -D qemu.log 
+VNC server running on `127.0.0.1:5901'
